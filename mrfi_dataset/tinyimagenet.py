@@ -9,6 +9,9 @@ from torch.utils import data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
+import random
+
+
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -123,10 +126,18 @@ def get_testset(
 def make_testloader(
     size: int | None = None,
     folder: str = "~/dataset/val/tiny-imagenet-200/val",
+    isRandom: bool = False,
     **kwargs,
 ) -> data.DataLoader:
     testset = get_testset(folder)
     if size is None:
         return data.DataLoader(testset, **kwargs)
-    subset = data.Subset(testset, range(size))
-    return data.DataLoader(subset, **kwargs)
+    
+    if isRandom:
+        idx = random.sample(range(len(testset)), size)  
+        subset = data.Subset(testset, idx)
+        return data.DataLoader(subset, **kwargs)
+    else:
+        subset = data.Subset(testset, range(size))
+        return data.DataLoader(subset, **kwargs)
+    
