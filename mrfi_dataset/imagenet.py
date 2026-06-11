@@ -3,6 +3,8 @@ from torch.nn.functional import normalize
 from torch.utils import data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+import random
+
 
 normalize=transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -24,9 +26,15 @@ def get_testset(folder = '~/dataset/val'):
         testset = datasets.ImageFolder(folder, tf)
     return testset
 
-def make_testloader(size = None, folder = '~/dataset/val', **kwargs):
+def make_testloader(size = None, folder = '~/dataset/val', isRandom=False, **kwargs):
     testset = get_testset(folder)
-    if size == None:
+    if size is None:
         return data.DataLoader(testset, **kwargs)
-    subset = data.Subset(testset, range(size))
-    return data.DataLoader(subset, **kwargs)
+    
+    if isRandom:
+        idx = random.sample(range(len(testset)), size)  
+        subset = data.Subset(testset, idx)
+        return data.DataLoader(subset, **kwargs)
+    else:
+        subset = data.Subset(testset, range(size))
+        return data.DataLoader(subset, **kwargs)
