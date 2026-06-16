@@ -154,6 +154,30 @@ def FloatRandomBitFlip(x_in: torch.Tensor,
 
     return res
 
+def FloatRandomHighBitFlip(x_in: torch.Tensor, start : int,
+                       floattype: Optional[Union[np.float16, np.float32, np.float64]] = None,
+                       suppress_invalid: bool = False) :
+
+    bit_width, nptype, npinttype = _get_float_type(x_in, floattype)
+    bit = torch.randint_like(x_in, start , bit_width)
+    bitmask = 1 << bit.cpu().numpy().astype(npinttype)
+    
+    np_value = x_in.cpu().numpy()
+    if nptype != np_value.dtype: 
+        np_value = np_value.astype(nptype)
+    np_value.dtype = npinttype # trickly change type
+
+    np_value ^= bitmask
+    np_value.dtype = nptype
+
+    res = torch.tensor(np_value, dtype=x_in.dtype, device=x_in.device)
+
+    if suppress_invalid:
+        res[torch.isnan(res)] = 0
+        res[torch.isinf(res)] = 0
+
+    return res
+
 def FloatFixedBitFlip(x_in: torch.Tensor, 
                     bit: Union[int, Sized], 
                     floattype: Optional[Union[np.float16, np.float32, np.float64]] = None,
