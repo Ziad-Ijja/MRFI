@@ -310,3 +310,35 @@ class UniformSampling(BaseObserver):
     
     def result(self) -> np.array:
         return self.data.detach().cpu().numpy()
+
+
+class HammingDistance(BaseObserver):
+    def reset(self):
+        self.dists = []
+        self.golden_act = None
+        self.last_is_golden = False
+
+    def update_golden(self, x):
+        self.last_is_golden = True
+        self.golden_act = x.detach().cpu().contiguous().view(torch.uint8).clone()
+
+    def update(self, x):
+        if not self.last_is_golden:
+            raise ValueError("Golden run required")
+        
+        f = x.detach().cpu().contiguous().view(torch.uint8)
+        diff = torch.bitwise_xor(self.golden_act, f)
+        
+        hamming = 0
+        for i in range(8):
+            hamming += int(((diff >> i) & 1).sum().item())
+        
+        # Total bits in float32 : numel * 32 bits
+        total_bits = x.numel() * 32
+        self.dists.append(hamming / total_bits)
+        
+        self.last_is_golden = False
+        self.golden_act = None
+
+    def result(self):
+        return float(np.mean(self.dists)) * 100 
