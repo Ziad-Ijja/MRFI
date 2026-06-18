@@ -333,8 +333,8 @@ class HammingDistance(BaseObserver):
         for i in range(8):
             hamming += int(((diff >> i) & 1).sum().item())
         
-        # Total bits in float32 : numel * 32 bits
-        total_bits = x.numel() * 32
+        # Total bits in float32 : numel * 16 bits
+        total_bits = x.numel() * 16
         self.dists.append(hamming / total_bits)
         
         self.last_is_golden = False
@@ -342,3 +342,32 @@ class HammingDistance(BaseObserver):
 
     def result(self):
         return float(np.mean(self.dists)) * 100 
+
+class EuclideanDistance(BaseObserver):
+    def reset(self):
+        self.golden_act = None
+        self.last_is_golden = False
+        self.l2_values = []
+
+    def update_golden(self, x):
+        self.last_is_golden = True
+        self.golden_act = x.detach().clone()
+
+    def update(self, x):
+        if not self.last_is_golden:
+            raise ValueError("Euclidean observer requires golden run before FI run")
+        
+        fi_act = x.detach().clone()
+        
+        fi_act = torch.nan_to_num(fi_act, nan=0.0, posinf=0.0, neginf=0.0)
+        golden = torch.nan_to_num(self.golden_act, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        diff = fi_act - golden
+        l2 = torch.norm(diff.double(), p=2).item()
+        self.l2_values.append(l2)
+        
+        self.last_is_golden = False
+        self.golden_act = None
+
+    def result(self) -> float:
+        return float(np.mean(self.l2_values))
