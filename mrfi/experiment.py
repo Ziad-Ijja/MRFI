@@ -298,3 +298,42 @@ def get_weight_info(model: Union[MRFI, torch.nn.Module],
                 obs_result[mname + '.' + wname] = observer.result()
 
     return obs_result
+
+
+def UnetIoU_Experiment(model, dataloader):
+    device = next(model.parameters()).device
+
+    if isinstance(model, MRFI):
+        model.observers_reset()
+
+    inter, union = 0, 0
+
+    for x, y in dataloader:
+        x = x.to(device)
+        y = y.to(device).bool()
+
+        with torch.no_grad():
+            out = model(x)
+            out = (out > 0.5).squeeze(1)
+            out = out.to(device)
+
+        inter += (out & y).sum().item()
+        union += (out | y).sum().item()
+
+    return inter / (union + 1e-8)
+
+
+def UnetIoU_Golden(model: Union[MRFI, torch.nn.Module],
+                       dataloader: DataLoader,
+                       disable_quantization: bool = False) -> float:
+
+    if disable_quantization:
+        model.global_FI_enabled = False
+
+    with model.golden_run():
+        result = UnetIoU_Experiment(model, dataloader)
+
+    if disable_quantization:
+        model.global_FI_enabled = True
+    
+    return result
