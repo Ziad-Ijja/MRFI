@@ -102,13 +102,13 @@ class RMSE(BaseObserver):
 
     def update_golden(self, x):
         self.last_is_golden = True
-        self.golden_act = x.clone()
+        self.golden_act = x.detach().cpu()
 
     def update(self, x):
         if not self.last_is_golden:
             raise ValueError('RMSE observer require golden run before FI run')
         
-        mse = torch.mean((x-self.golden_act)**2)
+        mse = torch.mean((x.detach().cpu() -self.golden_act)**2)
         self.MSE_sum.append(mse.item())
 
         self.last_is_golden = False
@@ -323,6 +323,7 @@ class HammingDistance(BaseObserver):
         self.golden_act = x.detach().cpu().contiguous().view(torch.uint8).clone()
 
     def update(self, x):
+
         if not self.last_is_golden:
             raise ValueError("Golden run required")
         
@@ -333,8 +334,7 @@ class HammingDistance(BaseObserver):
         for i in range(8):
             hamming += int(((diff >> i) & 1).sum().item())
         
-        # Total bits in float32 : numel * 16 bits
-        total_bits = x.numel() * 16
+        total_bits = x.numel() * 32
         self.dists.append(hamming / total_bits)
         
         self.last_is_golden = False
@@ -351,13 +351,13 @@ class EuclideanDistance(BaseObserver):
 
     def update_golden(self, x):
         self.last_is_golden = True
-        self.golden_act = x.detach().clone()
+        self.golden_act = x.detach().cpu()
 
     def update(self, x):
         if not self.last_is_golden:
             raise ValueError("Euclidean observer requires golden run before FI run")
         
-        fi_act = x.detach().clone()
+        fi_act = x.detach().cpu().clone()
         
         fi_act = torch.nan_to_num(fi_act, nan=0.0, posinf=0.0, neginf=0.0)
         golden = torch.nan_to_num(self.golden_act, nan=0.0, posinf=0.0, neginf=0.0)
